@@ -28,15 +28,12 @@ write(Key, Element, DbRef) ->
 delete(Key, DbRef) -> 
   delete(Key, [], DbRef).
 
-delete(_, Left, []) -> Left;
+delete(_, Left, []) -> reverse(Left);
 delete(Key, Left, Right) ->
   case Right of
-    [{Key,_}|RRight] -> delete(Key, merge(Left, RRight), []);
+    [{Key,_}|RRight] -> reverse(Left) ++ RRight;
     [LRight|RRight] -> delete(Key, [LRight|Left], RRight)
   end.
-
-merge([Acc|NewLeft],Right) -> merge(NewLeft, [Acc|Right]);
-merge([], Right) -> Right.
 
 reverse(List) -> reverse(List,[]).
 
