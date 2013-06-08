@@ -32,3 +32,21 @@ Db = db:new().
 Db1 = db:write(a,1, Db).
 Db2 = db:write(b,2, Db1).
 Db3 = db:write(a,3, Db2).
+
+
+c(db).
+f().
+db:merge([1,2],[3,4]).
+db:merge([1,2],[3,4,5]).
+db:merge([1,2],[3,4,5,6]).
+db:merge([1,2,3],[4,5]).
+db:merge([1,2,3,4],[5,6]).
+
+c(db).
+f().
+db:delete(a,[{a,1},{b,2},{c,3},{d,4},{e,4},{f,6},{g,7},{h,8}]).
+db:delete(b,[{a,1},{b,2},{c,3},{d,4},{e,4},{f,6},{g,7},{h,8}]).
+db:delete(c,[{a,1},{b,2},{c,3},{d,4},{e,4},{f,6},{g,7},{h,8}]).
+db:delete(g,[{a,1},{b,2},{c,3},{d,4},{e,4},{f,6},{g,7},{h,8}]).
+db:delete(h,[{a,1},{b,2},{c,3},{d,4},{e,4},{f,6},{g,7},{h,8}]).
+
