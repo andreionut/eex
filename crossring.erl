@@ -3,49 +3,60 @@
 
 -module (crossring).
 
--export ([start/3, loop/0]).
+-export ([start/3, loop/2]).
 
 start(ProcNum, MsgNum, Message) when ProcNum > 1, ProcNum rem 2 =:= 1, MsgNum > 0 ->
   CrossRing = create_crossring(ProcNum),
-  io:format("~p", [CrossRing]).
-  % timer:sleep(ProcNum*200),
-  % send_all(CrossRing, MsgNum, Message),
-  % timer:sleep(MsgNum*100),
-  % send_all(CrossRing, 1, stop).
+  {ok, FirstProcess} = get_process(1, CrossRing),
+  % io:format("~p / ~p ~n", [CrossRing, FirstProcess]),
+  % timer:sleep(ProcNum*20),
+  FirstProcess ! {send, Message, {0, CrossRing}},
+  timer:sleep(MsgNum*2),
+  FirstProcess ! {send, stop, {0, CrossRing}},
+  FirstProcess.
   
 create_crossring(ProcNum) ->
-  CrossPid = spawn(crossring,loop,[]),
-  create_crossring(ProcNum, ((ProcNum+1) div 2)+1, CrossPid, [{CrossPid, spawn(crossring,loop,[])}]).
+  create_crossring(ProcNum, 1, []).
 
-create_crossring(1, _, CrossPid, CrossRing = [{_, Right}|_]) -> 
-  lists:reverse([{Right, CrossPid}|CrossRing]);
-create_crossring(ProcNum, CrossNum, CrossPid, CrossRing = [{_, Right}|_]) ->
+create_crossring(ProcNum, ProcId, CrossRing) when ProcId > ProcNum -> lists:reverse(CrossRing);
+create_crossring(ProcNum, ProcId, CrossRing) ->
+  create_crossring(ProcNum, ProcId+1, [{ProcId,create_process(ProcNum, ProcId)}|CrossRing]).
+
+create_process(ProcNum, ProcId) -> spawn(crossring, loop, [ProcNum, ProcId]).
+
+get_neighbor_id(ProcNum, ProcId, FromId) ->
+% io:format("Get Neighbor: ProcNum=~p, ProcId=~p, FromId=~p ~n", [ProcNum, ProcId, FromId]),
+  MiddleId = ((ProcNum+1) div 2),
   if
-    CrossNum =:= ProcNum -> 
-      Neighbor = CrossPid;
-    true -> 
-      Neighbor = spawn(crossring,loop,[])
+    % Middle node sends to 1
+    ProcId =:= MiddleId -> NeighborId = 1;
+    % If we are 1 and received a message from the middle, send to Middle+1
+    FromId =:= MiddleId, ProcId =:= 1 -> NeighborId = MiddleId + 1;
+    % Last node send to first
+    ProcId =:= ProcNum -> NeighborId = 1;
+    % The rest of nodes send to the next one
+    true -> NeighborId = ProcId + 1
   end,
-  create_crossring(ProcNum-1, CrossNum, CrossPid, [{Right, Neighbor}|CrossRing]).
+  NeighborId.
 
-send_all(_, 0, _) -> true;
-send_all(CrossRing, MsgNum, Message) ->
-  send_message(CrossRing, Message),
-  send_all(CrossRing, MsgNum-1, Message).
+get_process(Key, [Item|Tail]) ->
+  case Item of
+    {Key,Element} -> {ok, Element};
+    {_, _} -> get_process(Key, Tail)
+  end;
+get_process(_,[]) -> {error, instance}.
 
-send_message([], _) -> true;
-send_message([{Left,Right}|Other], Message) ->
-  Left ! {send, Right, Message},
-  send_message(Other, Message).
-
-loop() ->
+loop(ProcNum, ProcId) ->
+  % io:format("ProcNum = ~p, ProcId = ~p ~n", [ProcNum, ProcId]),
   receive
-    {send, Neighbor, stop} -> 
-      io:format("Process: ~p terminating~n",[self()]),
-      Neighbor ! stop;
-    {send, Neighbor, Message} -> 
-      io:format("Process: ~p received: ~p ~n",[self(), Message]),
-      % io:format("Sending message ~p from ~p to ~p ~n",[Message, self(), Neighbor]),
-      Neighbor ! {send, Message},
-      loop()
+    {send, Message, {FromId, Ring}} -> 
+      {ok, Neighbor} = get_process(get_neighbor_id(ProcNum, ProcId, FromId), Ring),
+      Neighbor ! {send, Message, {ProcId, Ring}},
+      case Message of
+        stop ->
+          io:format("Process: ~p terminating~n",[ProcId]);
+        _ ->
+          io:format("Process: ~p received: ~p ~n",[ProcId, Message]),
+          loop(ProcNum, ProcId)
+      end %case
   end.
