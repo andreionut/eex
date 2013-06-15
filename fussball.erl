@@ -20,12 +20,19 @@ kickoff(Country) ->
 
 init(MyCountry, OtherCountry) ->
     register(MyCountry, self()),
+    process_flag(trap_exit, true),
+    case whereis(OtherCountry) of
+      undefined -> ok;
+      Pid -> link(Pid)
+    end,
     loop(MyCountry, OtherCountry).
 
 loop(MyCountry, OtherCountry) ->
     receive
 	stop ->
-	    ok;
+	    exit(stop);
+  {'EXIT', _Pid, Reason} ->
+    io:format("Got exit signal: ~p~n", [Reason]);
 	save ->
 	    io:format("~p just saved...~n", [OtherCountry]),
 	    loop(MyCountry, OtherCountry);
